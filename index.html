@@ -54,11 +54,142 @@ body { font-family: 'Noto Sans SC', sans-serif; background: #0d1117; color: #e6e
 .toggle-btn { background: rgba(56,139,253,0.12); border: 1px solid rgba(56,139,253,0.25); color: #58a6ff; padding: 0.3rem 0.7rem; border-radius: 6px; cursor: pointer; font-size: 0.7rem; font-family: inherit; transition: background 0.15s; }
 .toggle-btn:hover { background: rgba(56,139,253,0.2); }
 @media (max-width: 768px) { .side-panel { width: 100%; height: 50vh; top: auto; bottom: 0; border-right: none; border-top: 1px solid rgba(48,54,61,0.5); } .side-panel.collapsed { transform: translateY(calc(100% - 45px)); } }
+
+/* === AI Chat Interface === */
+.chat-btn {
+  position: fixed; bottom: 24px; right: 24px;
+  width: 56px; height: 56px; border-radius: 50%;
+  background: linear-gradient(135deg, #58a6ff, #a371f7);
+  border: none; cursor: pointer; font-size: 24px;
+  z-index: 20;
+  box-shadow: 0 4px 20px rgba(88,166,255,0.3), 0 2px 8px rgba(0,0,0,0.3);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  display: flex; align-items: center; justify-content: center;
+}
+.chat-btn:hover { transform: scale(1.08); box-shadow: 0 6px 28px rgba(88,166,255,0.5); }
+
+.chat-overlay {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(0,0,0,0.45);
+  z-index: 20;
+  display: none; opacity: 0;
+  transition: opacity 0.3s ease;
+}
+.chat-overlay.open { display: block; opacity: 1; }
+
+.chat-panel {
+  position: fixed; top: 0; right: 0; width: 380px; height: 100vh;
+  z-index: 21;
+  background: rgba(13,17,23,0.97);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-left: 1px solid rgba(48,54,61,0.5);
+  transform: translateX(100%);
+  transition: transform 0.3s ease;
+  display: flex; flex-direction: column;
+}
+.chat-panel.open { transform: translateX(0); }
+
+.chat-panel .chat-header {
+  padding: 1rem 1.2rem;
+  border-bottom: 1px solid #21262d;
+  display: flex; align-items: center; justify-content: space-between;
+  flex-shrink: 0;
+}
+.chat-panel .chat-header span {
+  font-size: 1rem; font-weight: 700;
+  background: linear-gradient(135deg, #58a6ff, #a371f7);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+
+.chat-close {
+  background: none; border: none; color: #8b949e;
+  font-size: 1.1rem; cursor: pointer; padding: 4px 8px;
+  transition: color 0.15s;
+}
+.chat-close:hover { color: #e6edf3; }
+
+.chat-messages {
+  flex: 1; overflow-y: auto; padding: 1rem;
+  display: flex; flex-direction: column;
+}
+.chat-messages::-webkit-scrollbar { width: 4px; }
+.chat-messages::-webkit-scrollbar-track { background: transparent; }
+.chat-messages::-webkit-scrollbar-thumb { background: #30363d; border-radius: 2px; }
+
+.chat-msg {
+  max-width: 85%; padding: 0.6rem 0.8rem;
+  border-radius: 8px; margin-bottom: 0.6rem;
+  animation: slideUp 0.2s ease;
+}
+.chat-msg.user {
+  background: rgba(56,139,253,0.15);
+  border: 1px solid rgba(56,139,253,0.3);
+  align-self: flex-end;
+  border-bottom-right-radius: 4px;
+}
+.chat-msg.assistant {
+  background: rgba(22,27,34,0.8);
+  border: 1px solid #30363d;
+  align-self: flex-start;
+  border-bottom-left-radius: 4px;
+}
+.chat-msg .msg-label { font-size: 0.6rem; color: #484f58; margin-bottom: 2px; }
+.chat-msg .msg-text { font-size: 0.8rem; line-height: 1.45; color: #e6edf3; }
+
+.chat-input-area {
+  padding: 0.75rem; border-top: 1px solid #21262d;
+  display: flex; gap: 0.5rem; background: rgba(13,17,23,0.97);
+}
+.chat-input-area input {
+  flex: 1; background: #161b22; border: 1px solid #21262d;
+  border-radius: 8px; padding: 0.55rem 0.75rem;
+  color: #e6edf3; font-size: 0.85rem; font-family: inherit;
+}
+.chat-input-area input:focus { outline: none; border-color: #58a6ff; }
+
+.chat-send {
+  width: 40px; height: 40px; border-radius: 8px;
+  background: linear-gradient(135deg, #58a6ff, #a371f7);
+  border: none; cursor: pointer; font-size: 1.1rem;
+  color: #fff; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  transition: opacity 0.15s;
+}
+.chat-send:disabled { opacity: 0.5; cursor: default; }
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 768px) {
+  .chat-panel { width: 100%; }
+}
 </style>
 </head>
 <body>
 
 <div id="map"></div>
+
+<button class="chat-btn" id="chatBtn" onclick="toggleChat()">💬</button>
+<div class="chat-overlay" id="chatOverlay" onclick="closeChat()"></div>
+<div class="chat-panel" id="chatPanel">
+  <div class="chat-header">
+    <span>🤖 AI 旅行助手</span>
+    <button class="chat-close" onclick="closeChat()">✕</button>
+  </div>
+  <div class="chat-messages" id="chatMessages">
+    <div class="chat-msg assistant">
+      <div class="msg-label">🤖 助手</div>
+      <div class="msg-text">你好！我是你的旅行助手，可以帮你调整行程。比如：<br>• "把屏山峡谷改到第二天"<br>• "加一天去宜昌"<br>• "帮我看看每天要开多久"<br>• "删掉安康住宿"</div>
+    </div>
+  </div>
+  <div class="chat-input-area">
+    <input type="text" id="chatInput" placeholder="输入需求，调整行程..." onkeydown="if(event.key==='Enter') sendChat()">
+    <button class="chat-send" id="chatSend" onclick="sendChat()">➤</button>
+  </div>
+</div>
 
 <div class="side-panel" id="sidePanel">
   <div class="panel-header">
@@ -304,6 +435,61 @@ body { font-family: 'Noto Sans SC', sans-serif; background: #0d1117; color: #e6e
   setTimeout(()=>{
     const f=document.querySelector('.itinerary-item'); if(f){f.classList.add('active');const id=f.dataset.target;const l=Locs[id];if(l){map.setView(l[1],8,{animate:false});if(mks[id])mks[id].openPopup();}}
   },500);
+
+  // === AI Chat Interface ===
+  const chatPanel = document.getElementById('chatPanel');
+  const chatOverlay = document.getElementById('chatOverlay');
+  const chatBtn = document.getElementById('chatBtn');
+  const chatMessages = document.getElementById('chatMessages');
+  const chatInput = document.getElementById('chatInput');
+  const chatSend = document.getElementById('chatSend');
+
+  window.toggleChat = function() {
+    const isOpen = chatPanel.classList.contains('open');
+    if (isOpen) closeChat(); else openChat();
+  };
+
+  window.openChat = function() {
+    chatPanel.classList.add('open');
+    chatOverlay.classList.add('open');
+    chatBtn.textContent = '✕';
+    setTimeout(() => chatInput.focus(), 300);
+  };
+
+  window.closeChat = function() {
+    chatPanel.classList.remove('open');
+    chatOverlay.classList.remove('open');
+    chatBtn.textContent = '💬';
+  };
+
+  window.sendChat = function() {
+    const text = chatInput.value.trim();
+    if (!text) return;
+    
+    // Add user message
+    addMessage('你', text, 'user');
+    chatInput.value = '';
+    
+    // Show loading
+    chatSend.disabled = true;
+    chatSend.textContent = '...';
+    
+    // Simulate AI response after 1s
+    setTimeout(() => {
+      addMessage('🤖 助手', `收到！你说的是："${text}"。\n（提示：行程自动调整功能正在开发中，敬请期待！）`, 'assistant');
+      chatSend.disabled = false;
+      chatSend.textContent = '➤';
+      chatInput.focus();
+    }, 1000);
+  };
+
+  function addMessage(label, text, role) {
+    const div = document.createElement('div');
+    div.className = `chat-msg ${role}`;
+    div.innerHTML = `<div class="msg-label">${label}</div><div class="msg-text">${text.replace(/\n/g, '<br>')}</div>`;
+    chatMessages.appendChild(div);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+  }
 })();
 </script>
 </body>
