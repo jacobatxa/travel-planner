@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>恩施自驾 · 五一行程地图</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600;700;800&display=swap');
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Noto Sans SC', sans-serif; background: #0d1117; color: #e6edf3; overflow: hidden; height: 100vh; }
+#map { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; }
+
+.side-panel {
+  position: fixed; top: 0; left: 0; width: 420px; height: 100vh; z-index: 10;
+  background: rgba(13, 17, 23, 0.92); backdrop-filter: blur(20px);
+  border-right: 1px solid rgba(48, 54, 61, 0.5); display: flex; flex-direction: column; overflow: hidden;
+  transition: transform 0.3s ease;
+}
+.panel-header { padding: 1.2rem 1.5rem 0.8rem; border-bottom: 1px solid #21262d; flex-shrink: 0; }
+.panel-header h1 { font-size: 1.3rem; font-weight: 800; background: linear-gradient(135deg, #58a6ff, #a371f7); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.panel-header .sub { font-size: 0.75rem; color: #8b949e; margin-top: 0.2rem; }
+.panel-header .badges { display: flex; gap: 0.35rem; margin-top: 0.5rem; flex-wrap: wrap; }
+.panel-header .badge { font-size: 0.65rem; padding: 0.15rem 0.5rem; background: rgba(56,139,253,0.12); border: 1px solid rgba(56,139,253,0.2); border-radius: 20px; color: #58a6ff; }
+.itinerary-list { flex: 1; overflow-y: auto; padding: 0.3rem 0; }
+.itinerary-list::-webkit-scrollbar { width: 4px; }
+.itinerary-list::-webkit-scrollbar-track { background: transparent; }
+.itinerary-list::-webkit-scrollbar-thumb { background: #30363d; border-radius: 2px; }
+.day-group { margin: 0 0.3rem; }
+.day-header { display: flex; align-items: center; gap: 0.5rem; padding: 0.6rem 0.8rem 0.3rem; font-size: 0.7rem; font-weight: 600; color: #8b949e; letter-spacing: 0.5px; }
+.day-header .line { flex: 1; height: 1px; background: #21262d; }
+.day-header .day-note { font-weight: 400; color: #484f58; font-size: 0.65rem; }
+.itinerary-item { position: relative; padding: 0.6rem 0.8rem 0.6rem 2rem; cursor: pointer; border-radius: 6px; margin: 1px 0; transition: background 0.15s, border-color 0.15s; border-left: 3px solid transparent; }
+.itinerary-item:hover { background: rgba(56,139,253,0.06); }
+.itinerary-item.active { background: rgba(56,139,253,0.1); border-left-color: #58a6ff; }
+.itinerary-item .dot { position: absolute; left: 0.6rem; top: 0.8rem; width: 9px; height: 9px; border-radius: 50%; border: 2px solid #30363d; background: transparent; }
+.itinerary-item.active .dot { background: #58a6ff; border-color: #58a6ff; box-shadow: 0 0 0 3px rgba(56,139,253,0.2); }
+.itinerary-item .time { font-size: 0.65rem; color: #484f58; font-weight: 500; }
+.itinerary-item .title { font-size: 0.85rem; font-weight: 600; color: #f0f6fc; margin-top: 1px; display: flex; align-items: center; gap: 0.3rem; flex-wrap: wrap; }
+.itinerary-item .title .tag { font-size: 0.6rem; padding: 0.05rem 0.35rem; border-radius: 3px; font-weight: 500; white-space: nowrap; }
+.tag-drive { background: rgba(56,139,253,0.15); color: #58a6ff; }
+.tag-eat { background: rgba(240,136,62,0.15); color: #f0883e; }
+.tag-play { background: rgba(163,113,247,0.15); color: #a371f7; }
+.tag-sleep { background: rgba(63,185,80,0.15); color: #3fb950; }
+.tag-alt { background: rgba(139,148,158,0.15); color: #8b949e; }
+.itinerary-item .desc { font-size: 0.73rem; color: #8b949e; margin-top: 0.1rem; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.itinerary-item .duration { font-size: 0.65rem; color: #484f58; margin-top: 0.1rem; }
+.itinerary-item .connector { position: absolute; left: 1rem; bottom: -0.3rem; width: 2px; height: 0.8rem; background: #21262d; }
+.itinerary-item:last-child .connector { display: none; }
+.panel-footer { padding: 0.6rem 1.5rem; border-top: 1px solid #21262d; flex-shrink: 0; display: flex; justify-content: space-between; align-items: center; }
+.panel-footer .total-info { font-size: 0.7rem; color: #8b949e; }
+.panel-footer .total-info strong { color: #58a6ff; }
+.toggle-btn { background: rgba(56,139,253,0.12); border: 1px solid rgba(56,139,253,0.25); color: #58a6ff; padding: 0.3rem 0.7rem; border-radius: 6px; cursor: pointer; font-size: 0.7rem; font-family: inherit; transition: background 0.15s; }
+.toggle-btn:hover { background: rgba(56,139,253,0.2); }
+@media (max-width: 768px) { .side-panel { width: 100%; height: 50vh; top: auto; bottom: 0; border-right: none; border-top: 1px solid rgba(48,54,61,0.5); } .side-panel.collapsed { transform: translateY(calc(100% - 45px)); } }
+</style>
+</head>
+<body>
+
+<div id="map"></div>
+
+<div class="side-panel" id="sidePanel">
+  <div class="panel-header">
+    <h1>🔄 恩施逆时针环线 · 4日自驾</h1>
+    <div class="sub">5.2 → 5.5 · 🔄 真环线不走回头路 · 全程约1,384km</div>
+    <div class="badges">
+      <span class="badge">🪨 梭布垭石林</span>
+      <span class="badge">🏔️ 恩施大峡谷</span>
+      <span class="badge">🛶 屏山峡谷</span>
+      <span class="badge">🍜 安康折返</span>
+      <span class="badge">✅ 真环线</span>
+    </div>
+  </div>
+
+  <div class="itinerary-list" id="itineraryList">
+
+    <!-- DAY 1: 5/2 -->
+    <div class="day-group">
+      <div class="day-header"><span>5月2日 · 周六</span><span class="line"></span><span class="day-note">🚗 西安→安康→梭布垭→恩施</span></div>
+
+      <div class="itinerary-item" data-target="xiAn" onclick="go(this,'xiAn')">
+        <div class="dot"></div><div class="connector"></div>
+        <div class="time">07:00</div>
+        <div class="title">🏁 西安出发 <span class="tag tag-drive">出发</span></div>
+        <div class="desc">莱安逸珲 → G65包茂高速向南，穿越秦岭</div>
+        <div class="duration">🚗 <strong>221km · 2h40min</strong> · 过路费≈¥90</div>
+      </div>
+
+      <div class="itinerary-item" data-target="ankang" onclick="go(this,'ankang')">
+        <div class="dot"></div><div class="connector"></div>
+        <div class="time">09:40 → 11:00</div>
+        <div class="title">🍜 安康 · 早餐+歇脚 <span class="tag tag-eat">休息</span></div>
+        <div class="desc">安康蒸面+紫阳蒸盆子 · 汉江边散步片刻</div>
+        <div class="duration">⏰ 停留1h · 11:00准时出发</div>
+      </div>
+
+      <div class="itinerary-item" data-target="suobuya" onclick="go(this,'suobuya')">
+        <div class="dot"></div><div class="connector"></div>
+        <div class="time">11:00 → 18:00</div>
+        <div class="title">🚗 安康→梭布垭+游览 <span class="tag tag-drive">驾车+游玩</span></div>
+        <div class="desc">G6911安来高速经巫溪 · <strong>390km约5.5h</strong>（含服务区休息）<br>🪨 梭布垭石林游览1.5h · 青龙寺·莲花寨</div>
+        <div class="duration">17:00-18:00游览 · 距恩施仅26km</div>
+      </div>
+
+      <div class="itinerary-item" data-target="enshiD1" onclick="go(this,'enshiD1')">
+        <div class="dot"></div>
+        <div class="time">18:30</div>
+        <div class="title">🏨 恩施市区 · 入住 <span class="tag tag-sleep">住宿</span></div>
+        <div class="desc">梭布垭→恩施仅<strong>26km · 30min</strong> · 铂尔曼/紫荆国际</div>
+        <div class="duration">🌙 女儿城夜市 · 土家腊排骨 · 住2晚</div>
+      </div>
+    </div>
+
+    <!-- DAY 2: 5/3 -->
+    <div class="day-group">
+      <div class="day-header"><span>5月3日 · 周日</span><span class="line"></span><span class="day-note">🏔️ 恩施大峡谷（全天）</span></div>
+
+      <div class="itinerary-item" data-target="canyon" onclick="go(this,'canyon')">
+        <div class="dot"></div><div class="connector"></div>
+        <div class="time">07:30 → 16:00</div>
+        <div class="title">🏔️ 恩施大峡谷 <span class="tag tag-play">全天</span></div>
+        <div class="desc">⛰️ 索道上七星寨（一炷香·绝壁长廊）→ 午饭后 → 🌊 云龙地缝（瀑布群·彩虹）</div>
+        <div class="duration">🚗 市区→景区<strong>30km · 40min</strong> · ⏰ 全天6-7h</div>
+      </div>
+
+      <div class="itinerary-item" data-target="enshiD2" onclick="go(this,'enshiD2')">
+        <div class="dot"></div>
+        <div class="time">16:40</div>
+        <div class="title">🌙 回恩施 <span class="tag tag-sleep">住宿</span></div>
+        <div class="desc">张关合渣晚餐 · 土司城夜景</div>
+        <div class="duration">同前晚酒店 · 早点休息</div>
+      </div>
+    </div>
+
+    <!-- DAY 3: 5/4 -->
+    <div class="day-group">
+      <div class="day-header"><span>5月4日 · 周一</span><span class="line"></span><span class="day-note">🛶 屏山峡谷 → 安康</span></div>
+
+      <div class="itinerary-item" data-target="pingshan" onclick="go(this,'pingshan')">
+        <div class="dot"></div><div class="connector"></div>
+        <div class="time">06:30 → 09:30</div>
+        <div class="title">🛶 屏山峡谷 · 早场 <span class="tag tag-play">游玩</span></div>
+        <div class="desc">恩施→鹤峰 · <strong>158km约2h</strong>（山路）<br>🌊 趁人少拍悬浮船 · 孩子玩水 · 游览2h</div>
+        <div class="duration">⏰ 早出发避开人流 · 09:30结束</div>
+      </div>
+
+      <div class="itinerary-item" data-target="lunch" onclick="go(this,'lunch')">
+        <div class="dot"></div><div class="connector"></div>
+        <div class="time">09:30 → 11:30</div>
+        <div class="title">🚗 屏山→恩施午餐 <span class="tag tag-eat">回程+午餐</span></div>
+        <div class="desc">鹤峰→恩施 <strong>157km · 2h</strong> · 恩施市区午餐<br>🍜 趁中午好好吃一顿再北上</div>
+        <div class="duration">⏰ 11:30出发北上</div>
+      </div>
+
+      <div class="itinerary-item" data-target="driveAnkang" onclick="go(this,'driveAnkang')">
+        <div class="dot"></div><div class="connector"></div>
+        <div class="time">11:30 → 17:00</div>
+        <div class="title">🚗 恩施 → 安康 <span class="tag tag-drive">驾车</span></div>
+        <div class="desc">G6911安来高速北上 · <strong>394km约5.5h</strong>（含服务区休息）<br>🔄 逆时针环线的关键折返段</div>
+        <div class="duration">⏰ 沿途服务区休息 · 不赶路</div>
+      </div>
+
+      <div class="itinerary-item" data-target="ankangStay" onclick="go(this,'ankangStay')">
+        <div class="dot"></div>
+        <div class="time">17:00</div>
+        <div class="title">🏨 安康 · 入住 <span class="tag tag-sleep">住宿</span></div>
+        <div class="desc">安康江景酒店 · 紫阳蒸盆子再吃一顿</div>
+        <div class="duration">📍 汉江边散步 · 最后一晚</div>
+      </div>
+    </div>
+
+    <!-- DAY 4: 5/5 -->
+    <div class="day-group">
+      <div class="day-header"><span>5月5日 · 周二</span><span class="line"></span><span class="day-note">🏁 安康→西安 · 轻松到家</span></div>
+
+      <div class="itinerary-item" data-target="ankangMorning" onclick="go(this,'ankangMorning')">
+        <div class="dot"></div><div class="connector"></div>
+        <div class="time">08:00 → 10:00</div>
+        <div class="title">☕ 安康 · 懒觉+早餐 <span class="tag tag-alt">悠闲</span></div>
+        <div class="desc">汉江边吃碗安康蒸面 · 逛逛江边公园<br>买点当地特产带回去</div>
+        <div class="duration">🎯 不赶路 · 慢慢享受</div>
+      </div>
+
+      <div class="itinerary-item" data-target="back" onclick="go(this,'back')">
+        <div class="dot" style="border-color: #3fb950;"></div>
+        <div class="time">10:00 → 12:40</div>
+        <div class="title">🏁 安康 → 西安·到家 <span class="tag tag-drive">返程</span></div>
+        <div class="desc">G65包茂高速穿秦岭 → 莱安逸珲 · <strong>222km仅2h40min</strong></div>
+        <div class="duration">🚗 过路费≈¥90 · ✅ 中午到家吃午饭</div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="panel-footer">
+    <div class="total-info">全程 <strong>1,384km</strong> 🔄 逆时针真环线 · 3景区 · 预估 <strong>¥7,500</strong></div>
+    <button class="toggle-btn" onclick="togglePanel()">⬅ 收起</button>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script>
+(function() {
+  const map = L.map('map', {
+    center: [31.2, 110.0],
+    zoom: 7,
+    zoomControl: true,
+    attributionControl: false
+  });
+
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    maxZoom: 19
+  }).addTo(map);
+
+  function mkIcon(color, sz=12) {
+    return L.divIcon({html:`<div style="background:${color};width:${sz}px;height:${sz}px;border-radius:50%;border:3px solid #0d1117;box-shadow:0 0 0 2px ${color};"></div>`,iconSize:[sz,sz],iconAnchor:[sz/2,sz/2],className:''});
+  }
+  const starIcn = L.divIcon({html:'<div style="font-size:20px;filter:drop-shadow(0 0 3px #a371f780);">⭐</div>',iconSize:[20,20],iconAnchor:[10,10],className:''});
+
+  const G = '#3fb950', O = '#f0883e', P = '#a371f7', B = '#58a6ff', Y = '#f0b848';
+
+  // 逆时针环线坐标 — 回程经安康
+  const Locs = {
+    xiAn:['西安出发',[34.25,108.90],mkIcon(G),'07:00 → 221km向南'],
+    ankang:['🍜 安康·早餐',[32.68,109.02],mkIcon(O),'安康蒸面 · 1h歇脚'],
+    suobuya:['🪨 梭布垭石林',[30.42,109.48],starIcn,'390km/5.5h · 游览1.5h'],
+    enshiD1:['恩施市区',[30.27,109.48],mkIcon(P),'住2晚 · 女儿城夜市'],
+    canyon:['🏔️ 恩施大峡谷⭐',[30.42,109.38],starIcn,'七星寨+云龙地缝 · 全天'],
+    enshiD2:['恩施市区',[30.27,109.48],mkIcon(P),'住2晚 · 土司城夜景'],
+    pingshan:['🛶 屏山峡谷⭐',[29.85,110.08],starIcn,'158km/2h · 游览2h早场'],
+    lunch:['恩施午餐',[30.27,109.48],mkIcon(O),'回恩施午餐 · 1.5h'],
+    driveAnkang:['🚗 北上安康',[31.50,109.50],mkIcon(B),'394km · 约5.5h'],
+    ankangStay:['🏨 安康·住宿',[32.68,109.02],mkIcon(P),'汉江夜景 · 蒸盆子晚餐'],
+    ankangMorning:['☕ 安康早晨',[32.68,109.02],mkIcon(Y),'蒸面+汉江边散步'],
+    back:['西安到家🏁',[34.25,108.90],mkIcon(G),'222km/2.7h · ✅中午到家'],
+  };
+  const mks = {};
+  // 普通标记
+  Object.entries(Locs).forEach(([k,v]) => {
+    if (v[2] !== starIcn) {
+      let m = L.marker(v[1],{icon:v[2]}).addTo(map).bindPopup(`<b>${v[0]}</b><br>${v[3]}`);
+      mks[k]=m;
+    }
+  });
+  // 星标景点
+  ['suobuya','canyon','pingshan'].forEach(k => {
+    const v = Locs[k];
+    let m = L.marker(v[1],{icon:starIcn}).addTo(map).bindPopup(`<b>${v[0]}</b><br>${v[3]}`);
+    mks[k]=m;
+  });
+
+  // Route segments — 逆时针环线
+  const S = {
+    s1:[[34.25,108.90],[33.50,108.80],[32.68,109.02]],               // Xi'an→Ankang 221km
+    s2:[[32.68,109.02],[31.50,109.80],[30.42,109.48]],                // Ankang→Suobuya 390km
+    s3:[[30.42,109.48],[30.27,109.48]],                                // Suobuya→Enshi 26km
+    s4:[[30.27,109.48],[30.42,109.38],[30.27,109.48]],                 // Enshi→Canyon→Enshi 80km
+    s5:[[30.27,109.48],[30.10,109.75],[29.85,110.08]],                 // Enshi→Pingshan 158km
+    s6:[[29.85,110.08],[29.89,110.04],[30.27,109.48]],                 // Pingshan→Enshi(lunch) 157km
+    s7:[[30.27,109.48],[31.00,109.50],[32.68,109.02]],                 // Enshi→Ankang 394km
+    s8:[[32.68,109.02],[33.50,108.80],[34.25,108.90]],                 // Ankang→Xi'an 222km
+  };
+  const I = {
+    xiAn:['s1'], ankang:['s2'], suobuya:['s3'],
+    enshiD1:['s4'], canyon:[], enshiD2:[],
+    pingshan:['s5'], lunch:['s6'], driveAnkang:['s7'],
+    ankangStay:[], ankangMorning:[], back:['s8']
+  };
+
+  // 完整环线polyline
+  const R = [
+    [34.25,108.90],[33.50,108.80],[32.68,109.02],
+    [31.50,109.80],[30.42,109.48],[30.27,109.48],
+    [30.42,109.38],[30.27,109.48],
+    [30.10,109.75],[29.85,110.08],[29.89,110.04],
+    [30.27,109.48],
+    [31.00,109.50],[32.68,109.02],
+    [33.50,108.80],[34.25,108.90]
+  ];
+  const full = L.polyline(R,{color:'#58a6ff',weight:3,opacity:0.25,dashArray:'10,8'}).addTo(map);
+  const segs = {};
+  Object.entries(S).forEach(([k,c]) => { segs[k]=L.polyline(c,{color:'#a371f7',weight:5,opacity:0}).addTo(map); });
+
+  map.fitBounds(full.getBounds().pad(0.08));
+
+  window.go = function(el, id) {
+    document.querySelectorAll('.itinerary-item.active').forEach(i=>i.classList.remove('active'));
+    el.classList.add('active');
+    const l = Locs[id]; if(l) {
+      const z = l[1][0] < 30 ? 10 : (l[1][0] > 33 ? 8 : 9);
+      map.setView(l[1], z, {animate:true,duration:0.5});
+      if(mks[id]) mks[id].openPopup();
+    }
+    const seg = I[id]||[];
+    Object.entries(segs).forEach(([k,ly]) => ly.setStyle({opacity:seg.includes(k)?0.95:0,color:'#a371f7',weight:5}));
+    full.setStyle({opacity:seg.length>0?0.1:0.25});
+    el.scrollIntoView({behavior:'smooth',block:'center'});
+  };
+  window.togglePanel = function() {
+    const p=document.getElementById('sidePanel'), b=document.querySelector('.toggle-btn');
+    p.classList.toggle('collapsed'); b.textContent=p.classList.contains('collapsed')?'➡ 展开':'⬅ 收起';
+  };
+  setTimeout(()=>{
+    const f=document.querySelector('.itinerary-item'); if(f){f.classList.add('active');const id=f.dataset.target;const l=Locs[id];if(l){map.setView(l[1],8,{animate:false});if(mks[id])mks[id].openPopup();}}
+  },500);
+})();
+</script>
+</body>
+</html>
