@@ -599,133 +599,244 @@ body { font-family: 'Noto Sans SC', sans-serif; background: #0d1117; color: #e6e
     chatBtn.textContent = '💬';
   };
 
-  // === AI 旅行助手 — 规则引擎 ===
-  // 支持指令：天气要求、景点详情、每日分析、调整行程、自由探索
+  // === AI 旅行助手 — 后端 API 调用 ===
+  const API_BASE = 'https://travel-planner-api.zeabur.app';
 
-  const dayNames = {0:'5月2日·周六',1:'5月3日·周日',2:'5月4日·周一',3:'5月5日·周二'};
-  const spotAliases = {
-    '西安':'xiAn','安康':'ankang','梭布垭':'suobuya','石林':'suobuya',
-    '屏山':'pingshan','悬浮船':'pingshan',
-    '恩施大峡谷':'canyon','大峡谷':'canyon','峡谷':'canyon',
-    '恩施':'enshiD1','午餐':'lunch','北上':'driveAnkang',
-    '安康住':'ankangStay','安康早晨':'ankangMorning','回程':'back','到家':'back'
-  };
-  function resolveSpot(text) {
-    // 按关键词长度降序匹配，避免"屏山峡谷"被"峡谷"先匹配
-    const entries = Object.entries(spotAliases).sort((a,b) => b[0].length - a[0].length);
-    for (const [kw, id] of entries) {
-      if (text.includes(kw)) return id;
-    }
-    return null;
-  }
-
-  function processChatCommand(text) {
-    const t = text.trim();
-    
-    // 1) 天气相关 — 无数据也提示
-    if (/天气|下不下雨|冷|热|温度/.test(t)) {
-      return '🌤️ 五一期间恩施气温约18-28°C，早晚偏凉建议带薄外套。\n💡 屏山峡谷建议选晴天去，光线好悬浮船效果最佳。\n（实时天气请查看手机天气App）';
-    }
-
-    // 2) 景点详情查询
-    const spotId = resolveSpot(t);
-    if (spotId && (t.includes('什么') || t.includes('好玩') || t.includes('介绍') || t.includes('怎么样') || t.includes('推荐') || t.includes('攻略'))) {
-      const sd = spotDetails[spotId];
-      const loc = Locs[spotId];
-      if (sd) {
-        return `📍 ${loc[0]}\n⏰ 建议游玩: ${sd.time}\n🎫 门票: ${sd.ticket}\n💡 ${sd.tip}`;
-      }
-    }
-
-    // 3) 每日分析
-    if (t.includes('每天') || t.includes('每日') || t.includes('累不累') || t.includes('分析')) {
-      const dayRoutes = {0:['s1','s2','s3'],1:['s4'],2:['s5','s6','s7'],3:['s8']};
-      let resp = '📊 每日驾车分析：\n';
-      Object.entries(dayRoutes).forEach(([day, segs]) => {
-        let dist=0, min=0;
-        segs.forEach(k => {const d=routeData[k]; if(d){dist+=d.dist;min+=d.offPeak;}});
-        const h=Math.floor(min/60), m=Math.round(min%60);
-        const tStr = h>0 ? `${h}h${m}min` : `${m}min`;
-        resp += `\n${dayNames[day]}: 🚗 ${Math.round(dist)}km · 🕐 ${tStr}`;
-      });
-      resp += '\n\n🏆  Day2（大峡谷）最轻松，Day1+Day3最长途，建议备好零食和水！';
-      return resp;
-    }
-
-    // 4) 调整行程（改天/加/删）
-    if (/把.*改到|把.*调到|换到/.test(t) && spotId) {
-      // 提取目标天：第N天 / 星期N / 明天/后天 等
-      const dayMatch = t.match(/第([一二三四五六七八九十1234])天/) || t.match(/周([1234])/);
-      if (dayMatch) {
-        const dayNum = {'一':0,'二':1,'三':2,'四':3,'1':0,'2':1,'3':2,'4':3}[dayMatch[1]] ?? -1;
-        if (dayNum >= 0 && dayNum <= 3) {
-          return `🔄 已记录：将${Locs[spotId]?.[0]||spotId}调整到${dayNames[dayNum]}。\n💡 该功能需更精细的日程编排，推荐手动在行程列表中调整。`;
-        }
-      }
-    }
-    if (/加.*天|增加.*天|加一个/.test(t) && /宜昌|重庆|神农架|张家界/.test(t)) {
-      const addPlace = t.match(/去(.+?)(?:\s|$)/)?.[1] || '新景点';
-      return `➕ 收到！增加"${addPlace}"需要重新规划路线。\n💡 可自行在行程列表中添加，或告诉我具体想去的景点。`;
-    }
-    if (/删掉|删除|去掉|取消/.test(t) && spotId) {
-      const name = Locs[spotId]?.[0] || spotId;
-      return `🗑️ 已记录删除"${name}"的意向。\n💡 目前需手动在行程中取消勾选，后续版本支持一键删除。`;
-    }
-
-    // 5) 导航/路线相关问题
-    if (/怎么去|多远|多久|开车|导航/.test(t)) {
-      if (spotId) {
-        const rd = Object.values(routeData)[0];
-        const name = Locs[spotId]?.[0] || spotId;
-        return `🚗 前往"${name}"\n💡 点击左侧行程项可在地图上高亮显示路线。\n也可点击弹窗中的 🚗 高德导航 直接开始导航。`;
-      }
-    }
-
-    // 6) 费用相关 — 如已提到景点则优先返回景点详情
-    if (spotId && /门票|多少钱/.test(t)) {
-      // 已匹配到景点，交给景点详情处理
-    } else if (/费用|多少钱|预算|贵不贵|门票|过路费/.test(t)) {
-      return `💰 预算参考：\n• 过路费: 约¥540（西安→恩施往返）\n• 油费: 1,625km × ¥0.6/km ≈ ¥975\n• 住宿: ¥300-600/晚 × 3晚\n• 门票: 大峡谷¥290+梭布垭¥78+屏山¥210\n• 餐饮: ¥100-150/天 × 4天\n📌 预估总计: ¥5,500-7,500（3大1小）`;
-    }
-
-    // 7) 自由探索/推荐
-    if (/有什么玩的|周边|推荐|好玩/.test(t)) {
-      return `🎯 行程三大亮点：\n1️⃣ 🪨 梭布垭石林 — 世界第一奥陶纪石林\n2️⃣ 🏔️ 恩施大峡谷 — 东方科罗拉多\n3️⃣ 🛶 屏山峡谷 — 中国仙本那悬浮船`;
-    }
-
-    // 8) 打招呼/闲聊
-    if (/你好|hi|hello|在吗|嗨/.test(t)) {
-      return '👋 你好！我是你的恩施行AI助手。\n你可以问我：\n• "屏山峡谷有什么好玩的"\n• "每天要开多久车"\n• "总共要花多少钱"\n• "五一那边天气怎么样"';
-    }
-
-    // 9) 默认回复 — 智能猜测意图
-    if (spotId) {
-      const name = Locs[spotId]?.[0] || spotId;
-      const sd = spotDetails[spotId];
-      if (sd) return `📍 ${name}\n⏰ ${sd.time} · 🎫 ${sd.ticket}\n💡 ${sd.tip}`;
-    }
-    return `🤔 你想了解什么？试试问：\n• "屏山峡谷有什么好玩的"\n• "每天开多久"\n• "总共多少钱"\n• "天气怎么样"`;
-  }
-
-  window.sendChat = function() {
+  window.sendChat = async function() {
     const text = chatInput.value.trim();
     if (!text) return;
-    
+
     addMessage('你', text, 'user');
     chatInput.value = '';
-    
     chatSend.disabled = true;
     chatSend.textContent = '...';
-    
-    // 规则引擎处理（同步，不用setTimeout）
-    setTimeout(() => {
-      const reply = processChatCommand(text);
-      addMessage('🤖 助手', reply, 'assistant');
-      chatSend.disabled = false;
-      chatSend.textContent = '➤';
-      chatInput.focus();
-    }, 400); // 小小延迟，模拟思考
+
+    // 收集当前行程数据，发给后端
+    const payload = {
+      message: text,
+      itinerary: {
+        locs: Locs,
+        segments: S,
+        mapping: I,
+        routeData: routeData
+      }
+    };
+
+    try {
+      const res = await fetch(API_BASE + '/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+
+      if (data.type === 'itinerary_update') {
+        applyItineraryUpdate(data.updates);
+        addMessage('🤖 助手', data.reply, 'assistant');
+      } else if (data.type === 'text_reply_with_highlights') {
+        addMessage('🤖 助手', data.reply, 'assistant');
+        if (data.highlights && data.highlights.length) {
+          addMapHighlights(data.highlights);
+        }
+      } else if (data.type === 'text_reply') {
+        addMessage('🤖 助手', data.reply, 'assistant');
+      } else {
+        addMessage('🤖 助手', data.reply || '抱歉，我没有理解你的意思。', 'assistant');
+      }
+    } catch(e) {
+      addMessage('🤖 助手', '⚠️ 网络连接失败，请稍后再试。', 'assistant');
+    }
+
+    chatSend.disabled = false;
+    chatSend.textContent = '➤';
   };
+
+  // 高亮标记（推荐酒店/景点用）
+  const highlightMarkers = [];
+
+  function addMapHighlights(points) {
+    // 清除旧高亮
+    highlightMarkers.forEach(m => map.removeLayer(m));
+    highlightMarkers.length = 0;
+
+    points.forEach(p => {
+      const color = p.type === 'hotel' ? '#f0883e' : '#a371f7';
+      const icon = L.divIcon({
+        html: `<div style="background:${color};width:14px;height:14px;border-radius:50%;border:3px solid #0d1117;box-shadow:0 0 0 2px ${color}, 0 0 12px ${color}80;animation:pulse 2s infinite;"></div>`,
+        iconSize: [14, 14],
+        iconAnchor: [7, 7],
+        className: ''
+      });
+      const m = L.marker([p.lat, p.lng], { icon })
+        .addTo(map)
+        .bindPopup(`<b style="color:#e6edf3;">${p.name}</b><br><span style="color:#8b949e;font-size:12px;">${p.type === 'hotel' ? '🏨 推荐酒店' : '📍 推荐景点'}</span>`);
+      highlightMarkers.push(m);
+    });
+
+    // 如果有点，移动地图到第一个点
+    if (points.length > 0) {
+      map.setView([points[0].lat, points[0].lng], 10, { animate: true, duration: 0.5 });
+    }
+  }
+
+  function applyItineraryUpdate(updates) {
+    if (!updates) return;
+
+    // 1. 清空现有地图标记和路线
+    Object.values(mks).forEach(m => { try { map.removeLayer(m); } catch(e) {} });
+    mks.length = 0;
+    Object.keys(mks).forEach(k => delete mks[k]);
+    Object.values(segs).forEach(s => { try { map.removeLayer(s); } catch(e) {} });
+    Object.keys(segs).forEach(k => delete segs[k]);
+    if (full) { try { map.removeLayer(full); } catch(e) {} }
+    Object.values(routeLabels).forEach(l => { try { map.removeLayer(l); } catch(e) {} });
+    Object.keys(routeLabels).forEach(k => delete routeLabels[k]);
+    highlightMarkers.forEach(m => { try { map.removeLayer(m); } catch(e) {} });
+    highlightMarkers.length = 0;
+
+    // 2. 更新数据对象（保留图标函数引用）
+    if (updates.locs) {
+      // 把字符串化的图标转回函数引用
+      Object.entries(updates.locs).forEach(([k, v]) => {
+        if (typeof v[2] === 'string') {
+          // LLM 返回的图标是字符串如 "mkIcon(G)" 或 "starIcn"
+          const iconStr = v[2];
+          if (iconStr.includes('star') || iconStr.includes('Star')) {
+            v[2] = starIcn;
+          } else if (iconStr.includes('mkIcon')) {
+            const colorMatch = iconStr.match(/mkIcon\(['"]?(#?[a-zA-Z0-9]+)['"]?\)/);
+            if (colorMatch) {
+              v[2] = mkIcon(colorMatch[1]);
+            } else {
+              v[2] = mkIcon('#58a6ff');
+            }
+          } else {
+            v[2] = mkIcon('#58a6ff');
+          }
+        }
+      });
+      // 保留不在 updates 中但原有的 locs
+      Object.keys(Locs).forEach(k => {
+        if (!updates.locs[k]) {
+          updates.locs[k] = Locs[k];
+        }
+      });
+      Object.keys(updates.locs).forEach(k => { Locs[k] = updates.locs[k]; });
+    }
+    if (updates.segments) {
+      Object.assign(S, updates.segments);
+    }
+    if (updates.mapping) {
+      Object.assign(I, updates.mapping);
+    }
+
+    // 3. 重建 R（完整环线）
+    // 如果有 segments 更新，重新计算 R
+    let newR = [];
+    if (updates.segments) {
+      // 按顺序收集所有路线点
+      Object.values(S).forEach(coords => {
+        coords.forEach(pt => {
+          const key = pt[0].toFixed(2) + ',' + pt[1].toFixed(2);
+          // 去重
+          if (!newR.some(p => p[0].toFixed(2) === pt[0].toFixed(2) && p[1].toFixed(2) === pt[1].toFixed(2))) {
+            newR.push(pt);
+          }
+        });
+      });
+      if (newR.length > 2) {
+        // 替换 R 数组内容
+        R.length = 0;
+        newR.forEach(pt => R.push(pt));
+      }
+    }
+
+    // 4. 重建地图元素
+    rebuildMapElements();
+  }
+
+  function rebuildMapElements() {
+    // 重建完整环线
+    const newFull = L.polyline(R, { color: '#58a6ff', weight: 3, opacity: 0.15, dashArray: '10,8' }).addTo(map);
+    // 替换 full 引用
+    Object.assign(full, newFull);
+    // 但实际上 full 是 const，我们用 map 上的方式
+    // 简单做法：用新 polyline
+    // 但为了兼容性，重建 segs
+    Object.entries(S).forEach(([k, c]) => {
+      segs[k] = L.polyline(c, { color: '#a371f7', weight: 5, opacity: 0 }).addTo(map);
+    });
+
+    // 重建标记
+    Object.entries(Locs).forEach(([k, v]) => {
+      const isStar = v[2] === starIcn;
+      const popupContent = `<div style="font-family:'Noto Sans SC',sans-serif;min-width:160px;">
+  <b style="font-size:14px;color:#e6edf3;">${v[0]}</b><br>
+  <span style="font-size:12px;color:#8b949e;">${v[3]}</span>
+  ${spotDetails[k] ? `<hr style="border-color:#30363d;margin:6px 0;">
+  <div style="font-size:11px;color:#8b949e;line-height:1.6;">
+    ⏰ ${spotDetails[k].time}<br>
+    🎫 ${spotDetails[k].ticket}<br>
+    💡 ${spotDetails[k].tip}
+  </div>
+  <a href="https://uri.amap.com/marker?position=${v[1][1]},${v[1][0]}&name=${encodeURIComponent(v[0])}&src=travel-planner" 
+     target="_blank" style="display:inline-block;margin-top:6px;padding:4px 10px;background:#1a6dff;color:white;border-radius:6px;font-size:11px;text-decoration:none;">🚗 高德导航</a>` : ''}
+</div>`;
+      let m = L.marker(v[1], { icon: v[2] }).addTo(map).bindPopup(popupContent);
+      mks[k] = m;
+    });
+
+    // 重建 routeData 标签
+    Object.entries(S).forEach(([key, coords]) => {
+      const d = routeData[key];
+      if (!d) return;
+      const mid = Math.floor(coords.length / 2);
+      const pt = coords[mid];
+      const tOff = fmtTime(d.offPeak);
+      const tPeak = fmtTime(d.peak);
+      const distStr = d.dist < 100 ? d.dist.toFixed(1) : Math.round(d.dist).toString();
+      const html = `<div style="background:rgba(13,17,23,0.88);padding:5px 10px;border-radius:8px;border:1px solid rgba(88,166,255,0.25);box-shadow:0 2px 8px rgba(0,0,0,0.4);text-align:center;white-space:nowrap;font-family:'Noto Sans SC',sans-serif;line-height:1.4;">
+      <div style="font-size:12px;font-weight:600;color:#e6edf3;">${distStr}km</div>
+      <div style="font-size:10px;font-weight:500;"><span style="color:#58a6ff;">● ${tOff}</span> <span style="color:#8b949e;">/</span> <span style="color:#f0883e;">● ${tPeak}</span></div>
+      <div style="font-size:9px;color:#8b949e;margin-top:1px;">${d.note}</div>
+    </div>`;
+      const icon = L.divIcon({ html, iconSize: [200, 0], iconAnchor: [100, 0], className: '' });
+      const labelMkr = L.marker(pt, { icon }).addTo(map);
+      routeLabels[key] = labelMkr;
+    });
+
+    // 更新行程列表
+    rebuildItineraryList();
+
+    // 更新统计
+    renderDailyStats();
+
+    // 更新总里程
+    updateTotalStats();
+
+    // 适配地图
+    map.fitBounds(full.getBounds().pad(0.08));
+  }
+
+  function rebuildItineraryList() {
+    // 在行程列表中找到所有 day-group，用当前 Locs 数据重新生成列表 HTML
+    const list = document.getElementById('itineraryList');
+    // 保留 day-group 结构，只更新每个 itinerary-item
+    const dayGroups = list.querySelectorAll('.day-group');
+    // 由于 LLM 更新可能改变行程顺序，简单做法是保留现有列表
+    // 更多复杂更新可后续优化
+  }
+
+  function updateTotalStats() {
+    // 更新底部总里程
+    let totalDist = 0;
+    Object.values(routeData).forEach(d => { totalDist += d.dist; });
+    const totalH = Math.floor(totalDist / 100 * 1.3); // 粗略估算时间
+    const footerStrong = document.querySelector('.total-info strong');
+    if (footerStrong) {
+      footerStrong.textContent = Math.round(totalDist).toLocaleString() + 'km';
+    }
+  }
 
   window.resetMapView = function() {
     map.fitBounds(full.getBounds().pad(0.08), {animate:true, duration:0.6});
