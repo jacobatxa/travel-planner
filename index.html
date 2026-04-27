@@ -166,12 +166,55 @@ body { font-family: 'Noto Sans SC', sans-serif; background: #0d1117; color: #e6e
 @media (max-width: 768px) {
   .chat-panel { width: 100%; }
 }
+
+/* 复位按钮 */
+.reset-btn {
+  position: fixed; bottom: 90px; right: 24px;
+  width: 44px; height: 44px; border-radius: 50%;
+  background: rgba(22,27,34,0.9);
+  border: 1px solid #30363d;
+  cursor: pointer; font-size: 20px; z-index: 20;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+  transition: transform 0.15s, background 0.15s;
+  display: flex; align-items: center; justify-content: center;
+}
+.reset-btn:hover { background: #21262d; transform: scale(1.08); }
+
+/* 加载动画 */
+#loading-screen {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  z-index: 9999;
+  background: #0d1117;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  transition: opacity 0.5s ease;
+}
+#loading-screen.hidden { opacity: 0; pointer-events: none; }
+#loading-screen .spinner {
+  width: 40px; height: 40px;
+  border: 3px solid #21262d;
+  border-top: 3px solid #58a6ff;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+#loading-screen p { margin-top: 16px; color: #8b949e; font-size: 0.85rem; }
+
+/* 每日驾车统计 */
+.day-stats { padding: 0.3rem 0.8rem 0.5rem; font-size: 0.7rem; color: #484f58; border-bottom: 1px solid #21262d; margin: 0 0 0.2rem; }
+.day-stats strong { color: #58a6ff; }
 </style>
 </head>
 <body>
 
+<div id="loading-screen">
+  <div class="spinner"></div>
+  <p>🌍 加载地图中...</p>
+</div>
+
 <div id="map"></div>
 
+<button class="reset-btn" onclick="resetMapView()" title="回到全景">🗺️</button>
 <button class="chat-btn" id="chatBtn" onclick="toggleChat()">💬</button>
 <div class="chat-overlay" id="chatOverlay" onclick="closeChat()"></div>
 <div class="chat-panel" id="chatPanel">
@@ -194,7 +237,7 @@ body { font-family: 'Noto Sans SC', sans-serif; background: #0d1117; color: #e6e
 <div class="side-panel" id="sidePanel">
   <div class="panel-header">
     <h1>🔄 恩施逆时针环线 · 4日自驾</h1>
-    <div class="sub">5.2 → 5.5 · 🔄 真环线不走回头路 · 全程约1,384km</div>
+    <div class="sub">5.2 → 5.5 · 🔄 真环线不走回头路 · 全程约1,625km · 🕐 约21.9小时</div>
     <div class="badges">
       <span class="badge">🪨 梭布垭石林</span>
       <span class="badge">🏔️ 恩施大峡谷</span>
@@ -209,6 +252,7 @@ body { font-family: 'Noto Sans SC', sans-serif; background: #0d1117; color: #e6e
     <!-- DAY 1: 5/2 -->
     <div class="day-group">
       <div class="day-header"><span>5月2日 · 周六</span><span class="line"></span><span class="day-note">🚗 西安→安康→梭布垭→恩施</span></div>
+      <div class="day-stats"></div>
 
       <div class="itinerary-item" data-target="xiAn" onclick="go(this,'xiAn')">
         <div class="dot"></div><div class="connector"></div>
@@ -246,6 +290,7 @@ body { font-family: 'Noto Sans SC', sans-serif; background: #0d1117; color: #e6e
     <!-- DAY 2: 5/3 -->
     <div class="day-group">
       <div class="day-header"><span>5月3日 · 周日</span><span class="line"></span><span class="day-note">🏔️ 恩施大峡谷（全天）</span></div>
+      <div class="day-stats"></div>
 
       <div class="itinerary-item" data-target="canyon" onclick="go(this,'canyon')">
         <div class="dot"></div><div class="connector"></div>
@@ -267,6 +312,7 @@ body { font-family: 'Noto Sans SC', sans-serif; background: #0d1117; color: #e6e
     <!-- DAY 3: 5/4 -->
     <div class="day-group">
       <div class="day-header"><span>5月4日 · 周一</span><span class="line"></span><span class="day-note">🛶 屏山峡谷 → 安康</span></div>
+      <div class="day-stats"></div>
 
       <div class="itinerary-item" data-target="pingshan" onclick="go(this,'pingshan')">
         <div class="dot"></div><div class="connector"></div>
@@ -304,6 +350,7 @@ body { font-family: 'Noto Sans SC', sans-serif; background: #0d1117; color: #e6e
     <!-- DAY 4: 5/5 -->
     <div class="day-group">
       <div class="day-header"><span>5月5日 · 周二</span><span class="line"></span><span class="day-note">🏁 安康→西安 · 轻松到家</span></div>
+      <div class="day-stats"></div>
 
       <div class="itinerary-item" data-target="ankangMorning" onclick="go(this,'ankangMorning')">
         <div class="dot"></div><div class="connector"></div>
@@ -325,7 +372,7 @@ body { font-family: 'Noto Sans SC', sans-serif; background: #0d1117; color: #e6e
   </div>
 
   <div class="panel-footer">
-    <div class="total-info">全程 <strong>1,384km</strong> 🔄 逆时针真环线 · 3景区 · 预估 <strong>¥7,500</strong></div>
+    <div class="total-info">全程 <strong>1,625km</strong> · 🕐 <strong>约21.9h</strong> 🔄 逆时针真环线 · 3景区 · 预估 <strong>¥7,500</strong></div>
     <button class="toggle-btn" onclick="togglePanel()">⬅ 收起</button>
   </div>
 </div>
@@ -367,17 +414,54 @@ body { font-family: 'Noto Sans SC', sans-serif; background: #0d1117; color: #e6e
     back:['西安到家🏁',[34.25,108.90],mkIcon(G),'222km/2.7h · ✅中午到家'],
   };
   const mks = {};
+  // 景点详情数据
+  const spotDetails = {
+    xiAn: {time:'-', ticket:'-', tip:'提前加满油，秦岭隧道多注意限速'},
+    ankang: {time:'1h', ticket:'免费', tip:'安康蒸面推荐育才路老店'},
+    suobuya: {time:'1.5-2h', ticket:'¥78', tip:'莲花寨是核心景区，先玩那里'},
+    enshiD1: {time:'-', ticket:'-', tip:'女儿城夜市18:00后最热闹'},
+    canyon: {time:'6-7h', ticket:'¥185+索道¥105', tip:'一定要索道上山！走上去太累，带够水'},
+    enshiD2: {time:'-', ticket:'-', tip:'张关合渣推荐点合渣+腊排骨'},
+    pingshan: {time:'2-3h', ticket:'¥210', tip:'早点去避开旅行团！悬浮船拍照¥20/人'},
+    lunch: {time:'1-1.5h', ticket:'¥50/人', tip:'恩施市区土家腊排骨火锅推荐'},
+    driveAnkang: {time:'5.5h', ticket:'过路费¥180', tip:'服务区休息2-3次，带零食给孩子'},
+    ankangStay: {time:'-', ticket:'-', tip:'汉江夜景很美，沿江散步'},
+    ankangMorning: {time:'2h', ticket:'免费', tip:'安康蒸面+菜豆腐，本地人早餐标配'},
+    back: {time:'2h40min', ticket:'过路费¥90', tip:'中午到家不耽误吃午饭'}
+  };
   // 普通标记
   Object.entries(Locs).forEach(([k,v]) => {
     if (v[2] !== starIcn) {
-      let m = L.marker(v[1],{icon:v[2]}).addTo(map).bindPopup(`<b>${v[0]}</b><br>${v[3]}`);
+      let m = L.marker(v[1],{icon:v[2]}).addTo(map).bindPopup(`<div style="font-family:'Noto Sans SC',sans-serif;min-width:160px;">
+  <b style="font-size:14px;color:#e6edf3;">${v[0]}</b><br>
+  <span style="font-size:12px;color:#8b949e;">${v[3]}</span>
+  ${spotDetails[k] ? `<hr style="border-color:#30363d;margin:6px 0;">
+  <div style="font-size:11px;color:#8b949e;line-height:1.6;">
+    ⏰ ${spotDetails[k].time}<br>
+    🎫 ${spotDetails[k].ticket}<br>
+    💡 ${spotDetails[k].tip}
+  </div>
+  <a href="https://uri.amap.com/marker?position=${v[1][1]},${v[1][0]}&name=${encodeURIComponent(v[0])}&src=travel-planner" 
+     target="_blank" style="display:inline-block;margin-top:6px;padding:4px 10px;background:#1a6dff;color:white;border-radius:6px;font-size:11px;text-decoration:none;">🚗 高德导航</a>` : ''}
+</div>`);
       mks[k]=m;
     }
   });
   // 星标景点
   ['suobuya','canyon','pingshan'].forEach(k => {
     const v = Locs[k];
-    let m = L.marker(v[1],{icon:starIcn}).addTo(map).bindPopup(`<b>${v[0]}</b><br>${v[3]}`);
+    let m = L.marker(v[1],{icon:starIcn}).addTo(map).bindPopup(`<div style="font-family:'Noto Sans SC',sans-serif;min-width:160px;">
+  <b style="font-size:14px;color:#e6edf3;">${v[0]}</b><br>
+  <span style="font-size:12px;color:#8b949e;">${v[3]}</span>
+  ${spotDetails[k] ? `<hr style="border-color:#30363d;margin:6px 0;">
+  <div style="font-size:11px;color:#8b949e;line-height:1.6;">
+    ⏰ ${spotDetails[k].time}<br>
+    🎫 ${spotDetails[k].ticket}<br>
+    💡 ${spotDetails[k].tip}
+  </div>
+  <a href="https://uri.amap.com/marker?position=${v[1][1]},${v[1][0]}&name=${encodeURIComponent(v[0])}&src=travel-planner" 
+     target="_blank" style="display:inline-block;margin-top:6px;padding:4px 10px;background:#1a6dff;color:white;border-radius:6px;font-size:11px;text-decoration:none;">🚗 高德导航</a>` : ''}
+</div>`);
     mks[k]=m;
   });
 
@@ -409,11 +493,49 @@ body { font-family: 'Noto Sans SC', sans-serif; background: #0d1117; color: #e6e
     [31.00,109.50],[32.68,109.02],
     [33.50,108.80],[34.25,108.90]
   ];
-  const full = L.polyline(R,{color:'#58a6ff',weight:3,opacity:0.25,dashArray:'10,8'}).addTo(map);
+  const full = L.polyline(R,{color:'#58a6ff',weight:3,opacity:0.15,dashArray:'10,8'}).addTo(map);
   const segs = {};
   Object.entries(S).forEach(([k,c]) => { segs[k]=L.polyline(c,{color:'#a371f7',weight:5,opacity:0}).addTo(map); });
 
+  // Route segment labels — static midpoint markers with distance & time
+  const routeData = {
+    s1:{dist:221.4, offPeak:159, peak:161, note:"早高峰 +2min"},
+    s2:{dist:389.7, offPeak:324.2, peak:324.2, note:"非高峰"},
+    s3:{dist:25.8, offPeak:29.4, peak:29.4, note:"非高峰"},
+    s4:{dist:57.3, offPeak:60.1, peak:61, note:"早高峰 +1min"},
+    s5:{dist:158.2, offPeak:130.3, peak:132, note:"早高峰 +1min"},
+    s6:{dist:157.0, offPeak:129.3, peak:129.3, note:"非高峰"},
+    s7:{dist:393.6, offPeak:323.8, peak:323.8, note:"非高峰"},
+    s8:{dist:221.6, offPeak:159.1, peak:159.1, note:"非高峰"},
+  };
+  const routeLabels = {};
+  function fmtTime(m) {
+    const h = Math.floor(m/60), min = Math.round(m%60);
+    return h > 0 ? `${h}h${min}min` : `${min}min`;
+  }
+  Object.entries(S).forEach(([key, coords]) => {
+    const d = routeData[key];
+    if (!d) return;
+    // Midpoint index
+    const mid = Math.floor(coords.length/2);
+    const pt = coords[mid];
+    const tOff = fmtTime(d.offPeak);
+    const tPeak = fmtTime(d.peak);
+    const distStr = d.dist < 100 ? d.dist.toFixed(1) : Math.round(d.dist).toString();
+    const html = `<div style="background:rgba(13,17,23,0.88);padding:5px 10px;border-radius:8px;border:1px solid rgba(88,166,255,0.25);box-shadow:0 2px 8px rgba(0,0,0,0.4);text-align:center;white-space:nowrap;font-family:'Noto Sans SC',sans-serif;line-height:1.4;">
+      <div style="font-size:12px;font-weight:600;color:#e6edf3;">${distStr}km</div>
+      <div style="font-size:10px;font-weight:500;"><span style="color:#58a6ff;">● ${tOff}</span> <span style="color:#8b949e;">/</span> <span style="color:#f0883e;">● ${tPeak}</span></div>
+      <div style="font-size:9px;color:#8b949e;margin-top:1px;">${d.note}</div>
+    </div>`;
+    const icon = L.divIcon({html, iconSize:[200,0], iconAnchor:[100,0], className:''});
+    const labelMkr = L.marker(pt, {icon}).addTo(map);
+    routeLabels[key] = labelMkr;
+  });
+
   map.fitBounds(full.getBounds().pad(0.08));
+
+  // 隐藏加载动画
+  setTimeout(() => document.getElementById('loading-screen').classList.add('hidden'), 300);
 
   window.go = function(el, id) {
     document.querySelectorAll('.itinerary-item.active').forEach(i=>i.classList.remove('active'));
@@ -425,7 +547,19 @@ body { font-family: 'Noto Sans SC', sans-serif; background: #0d1117; color: #e6e
     }
     const seg = I[id]||[];
     Object.entries(segs).forEach(([k,ly]) => ly.setStyle({opacity:seg.includes(k)?0.95:0,color:'#a371f7',weight:5}));
-    full.setStyle({opacity:seg.length>0?0.1:0.25});
+    full.setStyle({opacity:seg.length>0?0.1:0.15});
+    // 标注联动：高亮路段标注变亮，其余变暗
+    Object.entries(routeLabels).forEach(([k, mkr]) => {
+      if (mkr.getElement()) {
+        if (seg.includes(k)) {
+          mkr.getElement().querySelector('div > div:first-child').style.opacity = '1';
+          mkr.getElement().style.opacity = '1';
+        } else {
+          mkr.getElement().querySelector('div > div:first-child').style.opacity = '0.3';
+          mkr.getElement().style.opacity = '0.3';
+        }
+      }
+    });
     el.scrollIntoView({behavior:'smooth',block:'center'});
   };
   window.togglePanel = function() {
@@ -462,25 +596,137 @@ body { font-family: 'Noto Sans SC', sans-serif; background: #0d1117; color: #e6e
     chatBtn.textContent = '💬';
   };
 
+  // === AI 旅行助手 — 规则引擎 ===
+  // 支持指令：天气要求、景点详情、每日分析、调整行程、自由探索
+
+  const dayNames = {0:'5月2日·周六',1:'5月3日·周日',2:'5月4日·周一',3:'5月5日·周二'};
+  const spotAliases = {
+    '西安':'xiAn','安康':'ankang','梭布垭':'suobuya','石林':'suobuya',
+    '恩施':'enshiD1','大峡谷':'canyon','峡谷':'canyon',
+    '屏山':'pingshan','悬浮':'pingshan','午餐':'lunch','北上':'driveAnkang',
+    '安康住':'ankangStay','安康早晨':'ankangMorning','回程':'back','到家':'back'
+  };
+  function resolveSpot(text) {
+    for (const [kw, id] of Object.entries(spotAliases)) {
+      if (text.includes(kw)) return id;
+    }
+    return null;
+  }
+
+  function processChatCommand(text) {
+    const t = text.trim();
+    
+    // 1) 天气相关 — 无数据也提示
+    if (/天气|下不下雨|冷|热|温度/.test(t)) {
+      return '🌤️ 五一期间恩施气温约18-28°C，早晚偏凉建议带薄外套。\n💡 屏山峡谷建议选晴天去，光线好悬浮船效果最佳。\n（实时天气请查看手机天气App）';
+    }
+
+    // 2) 景点详情查询
+    const spotId = resolveSpot(t);
+    if (spotId && (t.includes('什么') || t.includes('好玩') || t.includes('介绍') || t.includes('怎么样') || t.includes('推荐') || t.includes('攻略'))) {
+      const sd = spotDetails[spotId];
+      const loc = Locs[spotId];
+      if (sd) {
+        return `📍 ${loc[0]}\n⏰ 建议游玩: ${sd.time}\n🎫 门票: ${sd.ticket}\n💡 ${sd.tip}`;
+      }
+    }
+
+    // 3) 每日分析
+    if (t.includes('每天') || t.includes('每日') || t.includes('累不累') || t.includes('分析')) {
+      const dayRoutes = {0:['s1','s2','s3'],1:['s4'],2:['s5','s6','s7'],3:['s8']};
+      let resp = '📊 每日驾车分析：\n';
+      Object.entries(dayRoutes).forEach(([day, segs]) => {
+        let dist=0, min=0;
+        segs.forEach(k => {const d=routeData[k]; if(d){dist+=d.dist;min+=d.offPeak;}});
+        const h=Math.floor(min/60), m=Math.round(min%60);
+        const tStr = h>0 ? `${h}h${m}min` : `${m}min`;
+        resp += `\n${dayNames[day]}: 🚗 ${Math.round(dist)}km · 🕐 ${tStr}`;
+      });
+      resp += '\n\n🏆  Day2（大峡谷）最轻松，Day1+Day3最长途，建议备好零食和水！';
+      return resp;
+    }
+
+    // 4) 调整行程（改天/加/删）
+    if (/把.*改到|把.*调到|换到/.test(t) && spotId) {
+      // 提取目标天：第N天 / 星期N / 明天/后天 等
+      const dayMatch = t.match(/第([一二三四五六七八九十1234])天/) || t.match(/周([1234])/);
+      if (dayMatch) {
+        const dayNum = {'一':0,'二':1,'三':2,'四':3,'1':0,'2':1,'3':2,'4':3}[dayMatch[1]] ?? -1;
+        if (dayNum >= 0 && dayNum <= 3) {
+          return `🔄 已记录：将${Locs[spotId]?.[0]||spotId}调整到${dayNames[dayNum]}。\n💡 该功能需更精细的日程编排，推荐手动在行程列表中调整。`;
+        }
+      }
+    }
+    if (/加.*天|增加.*天|加一个/.test(t) && /宜昌|重庆|神农架|张家界/.test(t)) {
+      const addPlace = t.match(/去(.+?)(?:\s|$)/)?.[1] || '新景点';
+      return `➕ 收到！增加"${addPlace}"需要重新规划路线。\n💡 可自行在行程列表中添加，或告诉我具体想去的景点。`;
+    }
+    if (/删掉|删除|去掉|取消/.test(t) && spotId) {
+      const name = Locs[spotId]?.[0] || spotId;
+      return `🗑️ 已记录删除"${name}"的意向。\n💡 目前需手动在行程中取消勾选，后续版本支持一键删除。`;
+    }
+
+    // 5) 导航/路线相关问题
+    if (/怎么去|多远|多久|开车|导航/.test(t)) {
+      if (spotId) {
+        const rd = Object.values(routeData)[0];
+        const name = Locs[spotId]?.[0] || spotId;
+        return `🚗 前往"${name}"\n💡 点击左侧行程项可在地图上高亮显示路线。\n也可点击弹窗中的 🚗 高德导航 直接开始导航。`;
+      }
+    }
+
+    // 6) 费用相关
+    if (/费用|多少钱|预算|贵不贵|门票|过路费/.test(t)) {
+      return `💰 预算参考：\n• 过路费: 约¥540（西安→恩施往返）\n• 油费: 1,625km × ¥0.6/km ≈ ¥975\n• 住宿: ¥300-600/晚 × 3晚\n• 门票: 大峡谷¥290+梭布垭¥78+屏山¥210\n• 餐饮: ¥100-150/天 × 4天\n📌 预估总计: ¥5,500-7,500（3大1小）`;
+    }
+
+    // 7) 自由探索/推荐
+    if (/有什么玩的|周边|推荐|好玩/.test(t)) {
+      return `🎯 行程三大亮点：\n1️⃣ 🪨 梭布垭石林 — 世界第一奥陶纪石林\n2️⃣ 🏔️ 恩施大峡谷 — 东方科罗拉多\n3️⃣ 🛶 屏山峡谷 — 中国仙本那悬浮船`;
+    }
+
+    // 8) 打招呼/闲聊
+    if (/你好|hi|hello|在吗|嗨/.test(t)) {
+      return '👋 你好！我是你的恩施行AI助手。\n你可以问我：\n• "屏山峡谷有什么好玩的"\n• "每天要开多久车"\n• "总共要花多少钱"\n• "五一那边天气怎么样"';
+    }
+
+    // 9) 默认回复 — 智能猜测意图
+    if (spotId) {
+      const name = Locs[spotId]?.[0] || spotId;
+      const sd = spotDetails[spotId];
+      if (sd) return `📍 ${name}\n⏰ ${sd.time} · 🎫 ${sd.ticket}\n💡 ${sd.tip}`;
+    }
+    return `🤔 你想了解什么？试试问：\n• "屏山峡谷有什么好玩的"\n• "每天开多久"\n• "总共多少钱"\n• "天气怎么样"`;
+  }
+
   window.sendChat = function() {
     const text = chatInput.value.trim();
     if (!text) return;
     
-    // Add user message
     addMessage('你', text, 'user');
     chatInput.value = '';
     
-    // Show loading
     chatSend.disabled = true;
     chatSend.textContent = '...';
     
-    // Simulate AI response after 1s
+    // 规则引擎处理（同步，不用setTimeout）
     setTimeout(() => {
-      addMessage('🤖 助手', `收到！你说的是："${text}"。\n（提示：行程自动调整功能正在开发中，敬请期待！）`, 'assistant');
+      const reply = processChatCommand(text);
+      addMessage('🤖 助手', reply, 'assistant');
       chatSend.disabled = false;
       chatSend.textContent = '➤';
       chatInput.focus();
-    }, 1000);
+    }, 400); // 小小延迟，模拟思考
+  };
+
+  window.resetMapView = function() {
+    map.fitBounds(full.getBounds().pad(0.08), {animate:true, duration:0.6});
+    // 复位时恢复标注透明度
+    Object.values(routeLabels).forEach(mkr => {
+      if (mkr.getElement()) {
+        mkr.getElement().style.opacity = '1';
+      }
+    });
   };
 
   function addMessage(label, text, role) {
@@ -490,6 +736,38 @@ body { font-family: 'Noto Sans SC', sans-serif; background: #0d1117; color: #e6e
     chatMessages.appendChild(div);
     chatMessages.scrollTop = chatMessages.scrollHeight;
   }
+
+  // 每日驾车统计
+  function renderDailyStats() {
+    const dayRoutes = {
+      0: { segs: ['s1','s2','s3'], name: 'Day1' },
+      1: { segs: ['s4'],            name: 'Day2' },
+      2: { segs: ['s5','s6','s7'],  name: 'Day3' },
+      3: { segs: ['s8'],            name: 'Day4' },
+    };
+    const dayGroups = document.querySelectorAll('.day-group');
+    dayGroups.forEach((group, idx) => {
+      const stats = dayRoutes[idx];
+      if (!stats) return;
+      let totalDist = 0, totalMin = 0;
+      stats.segs.forEach(key => {
+        const d = routeData[key];
+        if (d) {
+          totalDist += d.dist;
+          totalMin += d.offPeak;
+        }
+      });
+      const el = group.querySelector('.day-stats');
+      if (el) {
+        const h = Math.floor(totalMin / 60);
+        const min = Math.round(totalMin % 60);
+        const timeStr = h > 0 ? `${h}h${min}min` : `${min}min`;
+        el.innerHTML = `🚗 今日驾车: <strong>${Math.round(totalDist)}km</strong> · 🕐 <strong>${timeStr}</strong>`;
+      }
+    });
+  }
+
+  renderDailyStats();
 })();
 </script>
 </body>
