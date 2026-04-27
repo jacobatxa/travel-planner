@@ -602,12 +602,15 @@ body { font-family: 'Noto Sans SC', sans-serif; background: #0d1117; color: #e6e
   const dayNames = {0:'5月2日·周六',1:'5月3日·周日',2:'5月4日·周一',3:'5月5日·周二'};
   const spotAliases = {
     '西安':'xiAn','安康':'ankang','梭布垭':'suobuya','石林':'suobuya',
-    '恩施':'enshiD1','大峡谷':'canyon','峡谷':'canyon',
-    '屏山':'pingshan','悬浮':'pingshan','午餐':'lunch','北上':'driveAnkang',
+    '屏山':'pingshan','悬浮船':'pingshan',
+    '恩施大峡谷':'canyon','大峡谷':'canyon','峡谷':'canyon',
+    '恩施':'enshiD1','午餐':'lunch','北上':'driveAnkang',
     '安康住':'ankangStay','安康早晨':'ankangMorning','回程':'back','到家':'back'
   };
   function resolveSpot(text) {
-    for (const [kw, id] of Object.entries(spotAliases)) {
+    // 按关键词长度降序匹配，避免"屏山峡谷"被"峡谷"先匹配
+    const entries = Object.entries(spotAliases).sort((a,b) => b[0].length - a[0].length);
+    for (const [kw, id] of entries) {
       if (text.includes(kw)) return id;
     }
     return null;
