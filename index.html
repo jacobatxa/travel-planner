@@ -600,7 +600,7 @@ body { font-family: 'Noto Sans SC', sans-serif; background: #0d1117; color: #e6e
   };
 
   // === AI 旅行助手 — 后端 API 调用 ===
-  const API_BASE = 'https://travel-planner-api.zeabur.app';
+  const API_BASE = '';  // 同源部署，API 直接请求 /api/chat
 
   window.sendChat = async function() {
     const text = chatInput.value.trim();
